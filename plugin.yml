@@ -1,6 +1,6 @@
 name: GriefPrevention
 main: me.ryanhamshire.GriefPrevention.GriefPrevention
-softdepend: [Vault, Multiverse-Core]
+softdepend: [Vault, Multiverse-Core, WorldEdit]
 version: 5.1
 commands:
    abandonclaim:

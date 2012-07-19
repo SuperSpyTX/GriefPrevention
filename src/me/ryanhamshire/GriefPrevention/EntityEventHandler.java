@@ -295,6 +295,7 @@ class EntityEventHandler implements Listener
 			}
 		}
 	}
+
 	
 	//when an entity is damaged
 	@EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
