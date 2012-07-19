@@ -117,11 +117,16 @@ public class GriefPrevention extends JavaPlugin
 	
 	public boolean config_addItemsToClaimedChests;					//whether players may add items to claimed chests by left-clicking them
 	public boolean config_eavesdrop; 								//whether whispered messages will be visible to administrators
+	public ArrayList<String> config_eavesdrop_whisperCommands;		//list of whisper commands to eavesdrop on
 	
 	public boolean config_smartBan;									//whether to ban accounts which very likely owned by a banned player
 	
 	public boolean config_endermenMoveBlocks;						//whether or not endermen may move blocks around
 	public boolean config_creaturesTrampleCrops;					//whether or not non-player entities may trample crops
+	
+	public List<Integer> config_mods_accessTrustIds;				//list of block IDs which should require /accesstrust for player interaction
+	public List<Integer> config_mods_containerTrustIds;				//list of block IDs which should require /containertrust for player interaction
+	public List<String> config_mods_ignoreClaimsAccounts;			//list of player names which ALWAYS ignore claims
 	
 	//reference to the economy plugin, if economy integration is enabled
 	public static Economy economy = null;					
@@ -260,11 +265,21 @@ public class GriefPrevention extends JavaPlugin
 		
 		this.config_addItemsToClaimedChests = config.getBoolean("GriefPrevention.AddItemsToClaimedChests", true);
 		this.config_eavesdrop = config.getBoolean("GriefPrevention.EavesdropEnabled", false);
+		String whisperCommandsToMonitor = config.getString("GriefPrevention.WhisperCommands", "/tell;/pm;/r");
 		
 		this.config_smartBan = config.getBoolean("GriefPrevention.SmartBan", true);
 		
 		this.config_endermenMoveBlocks = config.getBoolean("GriefPrevention.EndermenMoveBlocks", false);
 		this.config_creaturesTrampleCrops = config.getBoolean("GriefPrevention.CreaturesTrampleCrops", false);
+		
+		this.config_mods_accessTrustIds = config.getIntegerList("GriefPrevention.Mods.BlockIdsRequiringAccessTrust");
+		if(this.config_mods_accessTrustIds == null) this.config_mods_accessTrustIds = new ArrayList<Integer>();
+		
+		this.config_mods_accessTrustIds = config.getIntegerList("GriefPrevention.Mods.BlockIdsRequiringContainerTrust");
+		if(this.config_mods_containerTrustIds == null) this.config_mods_containerTrustIds = new ArrayList<Integer>();
+		
+		this.config_mods_ignoreClaimsAccounts = config.getStringList("GriefPrevention.Mods.PlayersIgnoringAllClaims");
+		if(this.config_mods_ignoreClaimsAccounts == null) this.config_mods_ignoreClaimsAccounts = new ArrayList<String>();
 		
 		//default for claim investigation tool
 		String investigationToolMaterialName = Material.STICK.name();
@@ -366,6 +381,11 @@ public class GriefPrevention extends JavaPlugin
 			}
 		}
 		
+		//optional database settings
+		String databaseUrl = config.getString("GriefPrevention.Database.URL", "");
+		String databaseUserName = config.getString("GriefPrevention.Database.UserName", "");
+		String databasePassword = config.getString("GriefPrevention.Database.Password", "");
+		
 		config.set("GriefPrevention.Claims.Worlds", claimsEnabledWorldNames);
 		config.set("GriefPrevention.Claims.CreativeRulesWorlds", creativeClaimsEnabledWorldNames);
 		config.set("GriefPrevention.Claims.PreventTheft", this.config_claims_preventTheft);
@@ -415,6 +435,7 @@ public class GriefPrevention extends JavaPlugin
 		config.set("GriefPrevention.AddItemsToClaimedChests", this.config_addItemsToClaimedChests);
 		
 		config.set("GriefPrevention.EavesdropEnabled", this.config_eavesdrop);		
+		config.set("GriefPrevention.WhisperCommands", whisperCommandsToMonitor);		
 		config.set("GriefPrevention.SmartBan", this.config_smartBan);
 		
 		config.set("GriefPrevention.Siege.Worlds", siegeEnabledWorldNames);
@@ -422,6 +443,14 @@ public class GriefPrevention extends JavaPlugin
 		
 		config.set("GriefPrevention.EndermenMoveBlocks", this.config_endermenMoveBlocks);
 		config.set("GriefPrevention.CreaturesTrampleCrops", this.config_creaturesTrampleCrops);
+		
+		config.set("GriefPrevention.Database.URL", databaseUrl);
+		config.set("GriefPrevention.Database.UserName", databaseUserName);
+		config.set("GriefPrevention.Database.Password", databasePassword);		
+		
+		config.set("GriefPrevention.Mods.BlockIdsRequiringAccessTrust", this.config_mods_accessTrustIds);
+		config.set("GriefPrevention.Mods.BlockIdsRequiringContainerTrust", this.config_mods_containerTrustIds);
+		config.set("GriefPrevention.Mods.PlayersIgnoringAllClaims", this.config_mods_ignoreClaimsAccounts);
 		
 		try
 		{
@@ -440,8 +469,54 @@ public class GriefPrevention extends JavaPlugin
 			this.config_spam_monitorSlashCommands.add(commands[i].trim());
 		}
 		
+		//try to parse the list of commands which should be monitored for spam
+		this.config_eavesdrop_whisperCommands  = new ArrayList<String>();
+		commands = whisperCommandsToMonitor.split(";");
+		for(int i = 0; i < commands.length; i++)
+		{
+			this.config_eavesdrop_whisperCommands.add(commands[i].trim());
+		}		
+		
 		//when datastore initializes, it loads player and claim data, and posts some stats to the log
-		this.dataStore = new FlatFileDataStore();
+		if(databaseUrl.length() > 0)
+		{
+			try
+			{
+				DatabaseDataStore databaseStore = new DatabaseDataStore(databaseUrl, databaseUserName, databasePassword);
+			
+				if(FlatFileDataStore.hasData())
+				{
+					GriefPrevention.AddLogEntry("There appears to be some data on the hard drive.  Migrating those data to the database...");
+					FlatFileDataStore flatFileStore = new FlatFileDataStore();
+					flatFileStore.migrateData(databaseStore);
+					GriefPrevention.AddLogEntry("Data migration process complete.  Reloading data from the database...");
+					databaseStore.close();
+					databaseStore = new DatabaseDataStore(databaseUrl, databaseUserName, databasePassword);
+				}
+				
+				this.dataStore = databaseStore;
+			}
+			catch(Exception e)
+			{
+				GriefPrevention.AddLogEntry("Because there was a problem with the database, GriefPrevention will not function properly.  Either update the database config settings resolve the issue, or delete those lines from your config.yml so that GriefPrevention can use the file system to store data.");
+				return;
+			}			
+		}
+		
+		//if not using the database because it's not configured or because there was a problem, use the file system to store data
+		//this is the preferred method, as it's simpler than the database scenario
+		if(this.dataStore == null)
+		{
+			try
+			{
+				this.dataStore = new FlatFileDataStore();
+			}
+			catch(Exception e)
+			{
+				GriefPrevention.AddLogEntry("Unable to initialize the file system data store.  Details:");
+				GriefPrevention.AddLogEntry(e.getMessage());
+			}
+		}
 		
 		//unless claim block accrual is disabled, start the recurring per 5 minute event to give claim blocks to online players
 		//20L ~ 1 second
@@ -1178,6 +1253,35 @@ public class GriefPrevention extends JavaPlugin
 			return true;
 		}
 		
+		//claimslist <player>
+		else if(cmd.getName().equalsIgnoreCase("claimslist"))
+		{
+			//requires exactly one parameter, the other player's name
+			if(args.length != 1) return false;
+			
+			//try to find that player
+			OfflinePlayer otherPlayer = this.resolvePlayer(args[0]);
+			if(otherPlayer == null)
+			{
+				GriefPrevention.sendMessage(player, TextMode.Err, Messages.PlayerNotFound);
+				return true;
+			}
+			
+			//load the player's data
+			PlayerData playerData = this.dataStore.getPlayerData(otherPlayer.getName());
+			player.sendMessage(playerData.accruedClaimBlocks + "(+" + playerData.bonusClaimBlocks + ")=" + playerData.accruedClaimBlocks + playerData.bonusClaimBlocks);
+			for(int i = 0; i < playerData.claims.size(); i++)
+			{
+				Claim claim = playerData.claims.get(i);
+				player.sendMessage("(-" + claim.getArea() + ") " + getfriendlyLocationString(claim.getLesserBoundaryCorner()));
+			}
+			
+			if(playerData.claims.size() > 0)
+				player.sendMessage("=" + playerData.getRemainingClaimBlocks());
+			
+			return true;
+		}
+		
 		//deathblow <player> [recipientPlayer]
 		else if(cmd.getName().equalsIgnoreCase("deathblow"))
 		{
@@ -1715,6 +1819,8 @@ public class GriefPrevention extends JavaPlugin
 			this.dataStore.savePlayerData(playerName, playerData);
 		}
 		
+		this.dataStore.close();
+		
 		AddLogEntry("GriefPrevention disabled.");
 	}
 	
@@ -2031,8 +2137,8 @@ public class GriefPrevention extends JavaPlugin
 		PlayerData playerData = this.dataStore.getPlayerData(player.getName());
 		Claim claim = this.dataStore.getClaimAt(location, false, playerData.lastClaim);
 		
-		//exception: administrators in ignore claims mode
-		if(playerData.ignoreClaims) return null;
+		//exception: administrators in ignore claims mode and special player accounts created by server mods
+		if(playerData.ignoreClaims || GriefPrevention.instance.config_mods_ignoreClaimsAccounts.contains(player.getName())) return null;
 		
 		//wilderness rules
 		if(claim == null)
@@ -2071,8 +2177,8 @@ public class GriefPrevention extends JavaPlugin
 		PlayerData playerData = this.dataStore.getPlayerData(player.getName());
 		Claim claim = this.dataStore.getClaimAt(location, false, playerData.lastClaim);
 		
-		//exception: administrators in ignore claims mode
-		if(playerData.ignoreClaims) return null;
+		//exception: administrators in ignore claims mode, and special player accounts created by server mods
+		if(playerData.ignoreClaims || GriefPrevention.instance.config_mods_ignoreClaimsAccounts.contains(player.getName())) return null;
 		
 		//wilderness rules
 		if(claim == null)
