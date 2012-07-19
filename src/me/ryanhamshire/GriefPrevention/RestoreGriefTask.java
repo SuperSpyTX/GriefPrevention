@@ -1,21 +1,29 @@
 package me.ryanhamshire.GriefPrevention;
 
+import java.util.List;
+
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
 
 public class RestoreGriefTask implements Runnable
 {
     private Location loc1 = null;
     private Location loc2 = null;
     private World world = null;
+    private Claim claim = null;
+    private Player player = null;
 
-    public RestoreGriefTask(World w, Location l1, Location l2)
+    public RestoreGriefTask(World w, Location l1, Location l2, Claim cl, Player pl)
     {
         world = w;
         loc1 = l1;
         loc2 = l2;
+        claim = cl;
+        player = pl;
     }
 
     @Override
@@ -52,6 +60,31 @@ public class RestoreGriefTask implements Runnable
                             block.setTypeId(0);
                     }
                 }
+            }
+        }
+
+        // clear any entities
+
+        //clean up entities in the player's location
+        List<Entity> entities3 = player.getNearbyEntities(50, 50, 50);
+        for (Entity entity : entities3)
+        {
+            if (!(entity instanceof Player))
+            {
+                boolean removal = false;
+                if (GriefPrevention.instance.dataStore.getClaimAt(entity.getLocation(), true, claim) != null)
+                {
+                    Claim thi = GriefPrevention.instance.dataStore.getClaimAt(entity.getLocation(), true, claim);
+                    if (thi.getID() == claim.getID())
+                        removal = true;
+
+                }
+
+                if (claim.isNear(entity.getLocation(), 30) && !removal)
+                    removal = true;
+
+                if (removal)
+                    entity.remove();
             }
         }
     }

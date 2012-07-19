@@ -752,7 +752,7 @@ public class Claim
 	    if(this.getArea() > 10000) return;
 	    
 	    // le regenerate!
-	    GriefPrevention.instance.getServer().getScheduler().scheduleSyncDelayedTask(GriefPrevention.instance, new RestoreGriefTask(this.lesserBoundaryCorner.getWorld(), this.lesserBoundaryCorner, this.greaterBoundaryCorner));
+	    GriefPrevention.instance.getServer().getScheduler().scheduleSyncDelayedTask(GriefPrevention.instance, new RestoreGriefTask(this.lesserBoundaryCorner.getWorld(), this.lesserBoundaryCorner, this.greaterBoundaryCorner, this, pl));
 	}
 	
 	//implements a strict ordering of claims, used to keep the claims collection sorted for faster searching
