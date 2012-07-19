@@ -48,6 +48,8 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.sk89q.worldedit.bukkit.WorldEditPlugin;
+
 public class GriefPrevention extends JavaPlugin
 {
 	//for convenience, a reference to the instance of this plugin
@@ -149,6 +151,12 @@ public class GriefPrevention extends JavaPlugin
 		AddLogEntry("Grief Prevention enabled.");
 		
 		instance = this;
+		
+		if(getServer().getPluginManager().getPlugin("WorldEdit") != null)
+		{
+		    WorldEditHandler.plg = (WorldEditPlugin) getServer().getPluginManager().getPlugin("WorldEdit");
+		    WorldEditHandler.we = true;
+		}
 		
 		//load the config if it exists
 		FileConfiguration config = YamlConfiguration.loadConfiguration(new File(DataStore.configFilePath));
@@ -646,7 +654,7 @@ public class GriefPrevention extends JavaPlugin
 			}
 			
 			//delete them
-			this.dataStore.deleteClaimsForPlayer(player.getName(), false);
+			this.dataStore.deleteClaimsForPlayer(player.getName(), false, null);
 			
 			//inform the player
 			int remainingBlocks = playerData.getRemainingClaimBlocks();
@@ -1205,6 +1213,8 @@ public class GriefPrevention extends JavaPlugin
 					else
 					{
 						claim.removeSurfaceFluids(null);
+						// RESTORE CREATIVE
+						claim.restoreArea(player);
 						this.dataStore.deleteClaim(claim);
 						GriefPrevention.sendMessage(player, TextMode.Success, Messages.DeleteSuccess);
 						GriefPrevention.AddLogEntry(player.getName() + " deleted " + claim.getOwnerName() + "'s claim at " + GriefPrevention.getfriendlyLocationString(claim.getLesserBoundaryCorner()));
@@ -1239,7 +1249,7 @@ public class GriefPrevention extends JavaPlugin
 			}
 			
 			//delete all that player's claims
-			this.dataStore.deleteClaimsForPlayer(otherPlayer.getName(), true);
+			this.dataStore.deleteClaimsForPlayer(otherPlayer.getName(), true, player);
 			
 			GriefPrevention.sendMessage(player, TextMode.Success, Messages.DeleteAllSuccess, otherPlayer.getName());
 			if(player != null)
@@ -1352,7 +1362,7 @@ public class GriefPrevention extends JavaPlugin
 			}
 			
 			//delete all admin claims
-			this.dataStore.deleteClaimsForPlayer("", true);  //empty string for owner name indicates an administrative claim
+			this.dataStore.deleteClaimsForPlayer("", true, null);  //empty string for owner name indicates an administrative claim
 			
 			GriefPrevention.sendMessage(player, TextMode.Success, Messages.AllAdminDeleted);
 			if(player != null)

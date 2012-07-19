@@ -111,7 +111,7 @@ public abstract class DataStore
 				
 				if(earliestPermissibleLastLogin.getTime().after(playerData.lastLogin))
 				{
-					this.deleteClaimsForPlayer(playerName, true);
+					this.deleteClaimsForPlayer(playerName, true, null);
 					GriefPrevention.AddLogEntry(" All of " + playerName + "'s claims have expired.");
 				}
 			}
@@ -762,7 +762,7 @@ public abstract class DataStore
 	}		
 	
 	//deletes all claims owned by a player
-	public void deleteClaimsForPlayer(String playerName, boolean deleteCreativeClaims)
+	public void deleteClaimsForPlayer(String playerName, boolean deleteCreativeClaims, Player pl)
 	{
 		//make a list of the player's claims
 		ArrayList<Claim> claimsToDelete = new ArrayList<Claim>();
@@ -777,6 +777,7 @@ public abstract class DataStore
 		for(int i = 0; i < claimsToDelete.size(); i++)
 		{
 			claimsToDelete.get(i).removeSurfaceFluids(null);
+			claimsToDelete.get(i).restoreArea(pl);
 			this.deleteClaim(claimsToDelete.get(i));
 		}					
 	}

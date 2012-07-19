@@ -737,6 +737,24 @@ public class Claim
 		return null;
 	}
 	
+	// restore the claim back and regenerate the area if necessary.
+	public void restoreArea(Player pl)
+	{   
+	    if(pl == null) return;
+	    
+	    // only creative worlds :3
+	    if(!GriefPrevention.instance.creativeRulesApply(this.getLesserBoundaryCorner())) return;
+	    
+	    // admin claim?
+	    if(this.isAdminClaim()) return;
+	    
+	    // max size
+	    if(this.getArea() > 10000) return;
+	    
+	    // le regenerate!
+	    GriefPrevention.instance.getServer().getScheduler().scheduleSyncDelayedTask(GriefPrevention.instance, new RestoreGriefTask(this.lesserBoundaryCorner.getWorld(), this.lesserBoundaryCorner, this.greaterBoundaryCorner));
+	}
+	
 	//implements a strict ordering of claims, used to keep the claims collection sorted for faster searching
 	boolean greaterThan(Claim otherClaim)
 	{
