@@ -58,6 +58,9 @@ public class PlayerData
 	//the claim this player is currently subdividing
 	public Claim claimSubdividing = null;
 	
+	//if the last bonemeal action is still under processing.
+	public boolean isProcessing;
+	
 	//the timestamp for the last time the player used /trapped
 	public Date lastTrappedUsage;
 	

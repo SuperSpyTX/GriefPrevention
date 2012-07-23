@@ -56,8 +56,7 @@ public class RestoreGriefTask implements Runnable
                     }
                     else if (y > 3)
                     {
-                        if (block.getTypeId() != 0)
-                            block.setTypeId(0);
+                        block.setTypeId(0);
                     }
                 }
             }
@@ -72,15 +71,19 @@ public class RestoreGriefTask implements Runnable
             if (!(entity instanceof Player))
             {
                 boolean removal = false;
+                boolean inownedclaim = false;
+
                 if (GriefPrevention.instance.dataStore.getClaimAt(entity.getLocation(), true, claim) != null)
                 {
                     Claim thi = GriefPrevention.instance.dataStore.getClaimAt(entity.getLocation(), true, claim);
                     if (thi.getID() == claim.getID())
                         removal = true;
 
+                    if (!removal)
+                        inownedclaim = true;
                 }
 
-                if (claim.isNear(entity.getLocation(), 30) && !removal)
+                if (claim.isNear(entity.getLocation(), 30) && !removal && !inownedclaim)
                     removal = true;
 
                 if (removal)
